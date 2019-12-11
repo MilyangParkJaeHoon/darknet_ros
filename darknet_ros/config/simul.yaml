@@ -1,13 +1,8 @@
 subscribers:
 
   camera_reading:
-    topic: /zed/zed_node/left/image_rect_color
+    topic: /alice_1_robot/camera_1/image_raw
     queue_size: 1
-
-  depth_reading:
-    topic: /zed/zed_node/point_cloud/cloud_registered
-    queue_size: 1
-
 
 actions:
 

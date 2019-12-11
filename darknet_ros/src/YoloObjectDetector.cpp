@@ -126,9 +126,17 @@ void YoloObjectDetector::init()
                 0, 0, 1, 0.5, 0, 0, 0, 0);
   yoloThread_ = std::thread(&YoloObjectDetector::yolo, this);
 
+  // point cloud array allocate default memory
+  pointCloudMap_ = (PointPos_**)malloc(frameWidth_*sizeof(PointPos_*));
+  for(int i=0; i<frameWidth_; i++){
+    pointCloudMap_[i] = (PointPos_*)malloc(frameHeight_*sizeof(PointPos_));
+  }
+
   // Initialize publisher and subscriber.
   std::string cameraTopicName;
   int cameraQueueSize;
+  std::string depthTopicName;
+  int depthQueueSize;
   std::string objectDetectorTopicName;
   int objectDetectorQueueSize;
   bool objectDetectorLatch;
@@ -142,6 +150,10 @@ void YoloObjectDetector::init()
   nodeHandle_.param("subscribers/camera_reading/topic", cameraTopicName,
                     std::string("/camera/image_raw"));
   nodeHandle_.param("subscribers/camera_reading/queue_size", cameraQueueSize, 1);
+  nodeHandle_.param("subscribers/depth_reading/topic", depthTopicName,
+                    std::string("/zed/zed_node/point_cloud/cloud_registered"));
+  nodeHandle_.param("subscribers/depth_reading/queue_size", depthQueueSize, 1);
+
   nodeHandle_.param("publishers/object_detector/topic", objectDetectorTopicName,
                     std::string("found_object"));
   nodeHandle_.param("publishers/object_detector/queue_size", objectDetectorQueueSize, 1);
@@ -157,6 +169,8 @@ void YoloObjectDetector::init()
 
   imageSubscriber_ = imageTransport_.subscribe(cameraTopicName, cameraQueueSize,
                                                &YoloObjectDetector::cameraCallback, this);
+  depthSubscriber_ = nodeHandle_.subscribe(depthTopicName, depthQueueSize,
+                                               &YoloObjectDetector::depthCallback, this);
   objectPublisher_ = nodeHandle_.advertise<darknet_ros_msgs::ObjectCount>(objectDetectorTopicName,
                                                                             objectDetectorQueueSize,
                                                                             objectDetectorLatch);
@@ -204,8 +218,25 @@ void YoloObjectDetector::cameraCallback(const sensor_msgs::ImageConstPtr& msg)
     }
     frameWidth_ = cam_image->image.size().width;
     frameHeight_ = cam_image->image.size().height;
+
+    // reallocate point cloud array
+    if(frameWidth_ != beforeFrameWidth_ || frameHeight_ != beforeFrameHeight_){
+      pointCloudMap_ = (PointPos_**)realloc(pointCloudMap_, frameWidth_*sizeof(PointPos_*));
+      for(int i=0; i<frameWidth_; i++){
+        pointCloudMap_[i] = (PointPos_*)realloc(pointCloudMap_[i], frameHeight_*sizeof(PointPos_));
+      }
+    }
+    beforeFrameWidth_ = frameWidth_;
+    beforeFrameHeight_ = frameHeight_;
+
   }
   return;
+}
+
+void YoloObjectDetector::depthCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
+{
+  ROS_DEBUG("[YoloObjectDetector] DEPTH value received."); 
+  pCloud = *msg;
 }
 
 void YoloObjectDetector::checkForObjectsActionGoalCB()
@@ -579,6 +610,38 @@ bool YoloObjectDetector::isNodeRunning(void)
   return isNodeRunning_;
 }
 
+PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int ymax)
+{ 
+  std::vector<int> x, y, z;
+  int bound = 50; 
+
+  if(xmax - xmin >= bound){
+    xmin = (xmax + xmin)/2 - bound/2;
+    xmax = (xmax + xmin)/2 + bound/2;
+  }
+  if(ymax - ymin >= bound){
+    ymin = (ymax + ymin)/2 - bound/2;
+    ymax = (ymax + ymin)/2 + bound/2;
+  }
+  for(int i=xmin;i<=xmax;i++){
+    for(int j=ymin;j<=ymax;j++){
+      PointPos_ now = pointCloudMap_[i][j];
+      x.push_back(now.x);
+      y.push_back(now.y);
+      z.push_back(now.z);
+    }   
+  }
+  std::sort(x.begin(), x.end());
+  std::sort(y.begin(), y.end());
+  std::sort(z.begin(), z.end());
+
+  PointPos_ median;
+  median.x = (x[(x.size()-1)/2] + x[x.size()/2])/2;
+  median.y = (y[(y.size()-1)/2] + y[y.size()/2])/2;
+  median.z = (z[(z.size()-1)/2] + z[z.size()/2])/2;
+  return median;
+}
+
 void *YoloObjectDetector::publishInThread()
 {
   // Publish image.
@@ -622,6 +685,10 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.ymin = ymin;
           boundingBox.xmax = xmax;
           boundingBox.ymax = ymax;
+
+          PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
+          boundingBox.distance = medianDistance.z;
+
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);
         }
       }

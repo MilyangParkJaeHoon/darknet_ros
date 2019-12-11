@@ -11,7 +11,6 @@
 // c++
 #include <math.h>
 #include <string>
-#include <stdlib.h>
 #include <vector>
 #include <iostream>
 #include <pthread.h>
@@ -22,7 +21,6 @@
 // ROS
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
-#include <std_msgs/Int8.h>
 #include <actionlib/server/simple_action_server.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -88,6 +86,9 @@ typedef struct
   std_msgs::Header header;
 } IplImageWithHeader_;
 
+//! Depth Pointcloud map.
+//PointPos_ pointCloudMap_[WIDTH+1][HEIGHT+1];
+
 class YoloObjectDetector
 {
  public:
@@ -119,7 +120,7 @@ class YoloObjectDetector
    */
   void cameraCallback(const sensor_msgs::ImageConstPtr& msg);
 
-  /*! 
+  /*!
    * Callback of depth from ZED camera
    */
   void depthCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
@@ -174,11 +175,10 @@ class YoloObjectDetector
   std::vector<int> rosBoxCounter_;
   darknet_ros_msgs::BoundingBoxes boundingBoxesResults_;
 
+
   //! Camera related parameters.
-  int frameWidth_{1280};
-  int frameHeight_{720};
-  int beforeFrameWidth_;
-  int beforeFrameHeight_;
+  int frameWidth_;
+  int frameHeight_;
 
   //! Publisher of the bounding box image.
   ros::Publisher detectionImagePublisher_;
@@ -215,7 +215,6 @@ class YoloObjectDetector
   double demoTime_;
 
   RosBox_ *roiBoxes_;
-  PointPos_ **pointCloudMap_;
   bool viewImage_;
   bool enableConsoleOutput_;
   int waitKeyDelay_;
