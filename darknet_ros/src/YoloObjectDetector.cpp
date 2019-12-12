@@ -218,17 +218,6 @@ void YoloObjectDetector::cameraCallback(const sensor_msgs::ImageConstPtr& msg)
     }
     frameWidth_ = cam_image->image.size().width;
     frameHeight_ = cam_image->image.size().height;
-
-    // reallocate point cloud array
-    if(frameWidth_ != beforeFrameWidth_ || frameHeight_ != beforeFrameHeight_){
-      pointCloudMap_ = (PointPos_**)realloc(pointCloudMap_, frameWidth_*sizeof(PointPos_*));
-      for(int i=0; i<frameWidth_; i++){
-        pointCloudMap_[i] = (PointPos_*)realloc(pointCloudMap_[i], frameHeight_*sizeof(PointPos_));
-      }
-    }
-    beforeFrameWidth_ = frameWidth_;
-    beforeFrameHeight_ = frameHeight_;
-
   }
   return;
 }
@@ -236,7 +225,20 @@ void YoloObjectDetector::cameraCallback(const sensor_msgs::ImageConstPtr& msg)
 void YoloObjectDetector::depthCallback(const sensor_msgs::PointCloud2::ConstPtr& msg)
 {
   ROS_DEBUG("[YoloObjectDetector] DEPTH value received."); 
-  pCloud = *msg;
+  pCloud_ = *msg;
+
+  int pCloudWidth = pCloud_.width;
+  int pCloudHeight = pCloud_.height;
+
+  // reallocate point cloud array
+  if(pCloudWidth != beforepCloudWidth_ || pCloudHeight != beforepCloudHeight_){
+    pointCloudMap_ = (PointPos_**)realloc(pointCloudMap_, frameWidth_*sizeof(PointPos_*));
+    for(int i=0; i<pCloudWidth; i++){
+      pointCloudMap_[i] = (PointPos_*)realloc(pointCloudMap_[i], pCloudHeight*sizeof(PointPos_));
+    }
+  }
+  beforepCloudWidth_ = pCloudWidth;
+  beforepCloudHeight_ = pCloudHeight;
 }
 
 void YoloObjectDetector::checkForObjectsActionGoalCB()
@@ -300,15 +302,6 @@ bool YoloObjectDetector::publishDetectionImage(const cv::Mat& detectionImage)
   ROS_DEBUG("Detection image has been published.");
   return true;
 }
-
-// double YoloObjectDetector::getWallTime()
-// {
-//   struct timeval time;
-//   if (gettimeofday(&time, NULL)) {
-//     return 0;
-//   }
-//   return (double) time.tv_sec + (double) time.tv_usec * .000001;
-// }
 
 int YoloObjectDetector::sizeNetwork(network *net)
 {
@@ -506,6 +499,30 @@ void YoloObjectDetector::setupNetwork(char *cfgfile, char *weightfile, char *dat
   set_batch_network(net_, 1);
 }
 
+void YoloObjectDetector::getDepthMap(){
+  if(pCloud_.data.size() > 0){
+    int pCloudWidth = pCloud_.width;
+    int pCloudHeight = pCloud_.height;
+    int index_x, index_y, index_z;
+    float x, y, z;
+
+    for(int i=0; i<pCloudWidth; i++){
+      for(int j=0; j<pCloudHeight; j++){
+        int offset = j*pCloud_.row_step + i*pCloud_.point_step;
+        index_x = offset + pCloud_.fields[0].offset;
+        index_y = offset + pCloud_.fields[1].offset;
+        index_z = offset + pCloud_.fields[2].offset;
+
+        memcpy(&x, &pCloud_.data[index_x], sizeof(float));
+        memcpy(&y, &pCloud_.data[index_y], sizeof(float));
+        memcpy(&z, &pCloud_.data[index_z], sizeof(float));
+    
+        pointCloudMap_[i][j] = {x, y, z};
+      }
+    }
+  }
+}
+
 void YoloObjectDetector::yolo()
 {
   const auto wait_duration = std::chrono::milliseconds(2000);
@@ -550,6 +567,7 @@ void YoloObjectDetector::yolo()
   ipl_ = cvCreateImage(cvSize(buff_[0].w, buff_[0].h), IPL_DEPTH_8U, buff_[0].c);
 
   int count = 0;
+  
 
   if (!demoPrefix_ && viewImage_) {
       cv::namedWindow("YOLO V3", cv::WINDOW_NORMAL);
@@ -564,6 +582,8 @@ void YoloObjectDetector::yolo()
   demoTime_ = what_time_is_it_now();
 
   while (!demoDone_) {
+    getDepthMap();
+
     buffIndex_ = (buffIndex_ + 1) % 3;
     fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
     detect_thread = std::thread(&YoloObjectDetector::detectInThread, this);
@@ -612,9 +632,8 @@ bool YoloObjectDetector::isNodeRunning(void)
 
 PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int ymax)
 { 
-  std::vector<int> x, y, z;
+  std::vector<float> x, y, z;
   int bound = 50; 
-
   if(xmax - xmin >= bound){
     xmin = (xmax + xmin)/2 - bound/2;
     xmax = (xmax + xmin)/2 + bound/2;
@@ -623,12 +642,13 @@ PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int 
     ymin = (ymax + ymin)/2 - bound/2;
     ymax = (ymax + ymin)/2 + bound/2;
   }
-  for(int i=xmin;i<=xmax;i++){
-    for(int j=ymin;j<=ymax;j++){
+
+  for(int i=xmin; i<xmax; i++){
+    for(int j=ymin; j<ymax; j++){
       PointPos_ now = pointCloudMap_[i][j];
-      x.push_back(now.x);
-      y.push_back(now.y);
-      z.push_back(now.z);
+      if(!isnan(now.x) && !isinf(now.x) && now.x < ERROR) x.push_back(now.x);
+      if(!isnan(now.y) && !isinf(now.y) && now.y < ERROR) y.push_back(now.y);
+      if(!isnan(now.z) && !isinf(now.z) && now.z < ERROR) z.push_back(now.z);
     }   
   }
   std::sort(x.begin(), x.end());
@@ -636,9 +656,21 @@ PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int 
   std::sort(z.begin(), z.end());
 
   PointPos_ median;
-  median.x = (x[(x.size()-1)/2] + x[x.size()/2])/2;
-  median.y = (y[(y.size()-1)/2] + y[y.size()/2])/2;
-  median.z = (z[(z.size()-1)/2] + z[z.size()/2])/2;
+  if(x.size() == 0){
+    median.x = ERROR;
+  }else{
+    median.x = x[int(x.size()/2)];
+  }
+  if(y.size() == 0){
+    median.y = ERROR;
+  }else{
+    median.y = y[int(y.size()/2)];
+  }
+  if(z.size() == 0){
+    median.z = ERROR;
+  }else{
+    median.z = z[int(z.size()/2)];
+  }
   return median;
 }
 
@@ -687,7 +719,7 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.ymax = ymax;
 
           PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
-          boundingBox.distance = medianDistance.z;
+          boundingBox.distance = medianDistance.x;
 
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);
         }

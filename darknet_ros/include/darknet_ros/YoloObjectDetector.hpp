@@ -67,7 +67,7 @@ extern "C" void show_image_cv(image p, const char *name, IplImage *disp);
 
 #define WIDTH 1280
 #define HEIGHT 720
-
+#define ERROR 54321
 namespace darknet_ros {
 
 //! Bounding box of the detected object.
@@ -79,7 +79,7 @@ typedef struct
 
 typedef struct
 {
-  int x, y, z;
+  float x, y, z;
 } PointPos_;
 
 typedef struct
@@ -174,11 +174,14 @@ class YoloObjectDetector
   std::vector<int> rosBoxCounter_;
   darknet_ros_msgs::BoundingBoxes boundingBoxesResults_;
 
+  //! Point Cloud depth map
+  sensor_msgs::PointCloud2 pCloud_;
+
   //! Camera related parameters.
   int frameWidth_{1280};
   int frameHeight_{720};
-  int beforeFrameWidth_;
-  int beforeFrameHeight_;
+  int beforepCloudWidth_;
+  int beforepCloudHeight_;
 
   //! Publisher of the bounding box image.
   ros::Publisher detectionImagePublisher_;
@@ -222,11 +225,11 @@ class YoloObjectDetector
   int fullScreen_;
   char *demoPrefix_;
 
+  int chk_=0;
+
   std_msgs::Header imageHeader_;
   cv::Mat camImageCopy_;
   boost::shared_mutex mutexImageCallback_;
-
-  sensor_msgs::PointCloud2 pCloud;
 
   bool imageStatus_ = false;
   boost::shared_mutex mutexImageStatus_;
@@ -270,6 +273,8 @@ class YoloObjectDetector
   bool isNodeRunning(void);
 
   void *publishInThread();
+
+  void getDepthMap();
 };
 
 } /* namespace darknet_ros*/
