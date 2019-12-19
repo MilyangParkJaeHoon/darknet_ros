@@ -121,16 +121,16 @@ void YoloObjectDetector::init()
     strcpy(detectionNames[i], classLabels_[i].c_str());
   }
 
-  // Load network.
-  setupNetwork(cfg, weights, data, thresh, detectionNames, numClasses_,
-                0, 0, 1, 0.5, 0, 0, 0, 0);
-  yoloThread_ = std::thread(&YoloObjectDetector::yolo, this);
-
   // point cloud array allocate default memory
   pointCloudMap_ = (PointPos_**)malloc(frameWidth_*sizeof(PointPos_*));
   for(int i=0; i<frameWidth_; i++){
     pointCloudMap_[i] = (PointPos_*)malloc(frameHeight_*sizeof(PointPos_));
   }
+
+  // Load network.
+  setupNetwork(cfg, weights, data, thresh, detectionNames, numClasses_,
+                0, 0, 1, 0.5, 0, 0, 0, 0);
+  yoloThread_ = std::thread(&YoloObjectDetector::yolo, this);
 
   // Initialize publisher and subscriber.
   std::string cameraTopicName;
