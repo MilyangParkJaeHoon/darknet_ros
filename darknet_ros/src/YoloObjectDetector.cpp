@@ -700,6 +700,11 @@ void *YoloObjectDetector::publishInThread()
     msg.count = num;
     objectPublisher_.publish(msg);
 
+    darkent_ros_msgs::BoundingBox frameInfo = {};
+    frameInfo.xmax = frameWidth_;
+    frameInfo.ymax = frameHeight_;
+    boundingBoxesResults_.bounding_boxes.push_back(
+
     for (int i = 0; i < numClasses_; i++) {
       if (rosBoxCounter_[i] > 0) {
         darknet_ros_msgs::BoundingBox boundingBox;
