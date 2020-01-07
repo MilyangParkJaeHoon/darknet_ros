@@ -700,10 +700,10 @@ void *YoloObjectDetector::publishInThread()
     msg.count = num;
     objectPublisher_.publish(msg);
 
-    darkent_ros_msgs::BoundingBox frameInfo = {};
+    darknet_ros_msgs::BoundingBox frameInfo = {};
     frameInfo.xmax = frameWidth_;
     frameInfo.ymax = frameHeight_;
-    boundingBoxesResults_.bounding_boxes.push_back(
+    boundingBoxesResults_.bounding_boxes.push_back(frameInfo);
 
     for (int i = 0; i < numClasses_; i++) {
       if (rosBoxCounter_[i] > 0) {
@@ -725,7 +725,10 @@ void *YoloObjectDetector::publishInThread()
 
           PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
           boundingBox.distance = medianDistance.x;
-
+          
+          if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
+            continue;
+          }
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);
         }
       }
