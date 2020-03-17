@@ -633,7 +633,7 @@ bool YoloObjectDetector::isNodeRunning(void)
 PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int ymax)
 { 
   std::vector<float> x, y, z;
-  int bound = 50; 
+  int bound = 20; 
   if(xmax - xmin >= bound){
     xmin = (xmax + xmin)/2 - bound/2;
     xmax = (xmax + xmin)/2 + bound/2;
@@ -724,7 +724,8 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.ymax = ymax;
 
           PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
-          boundingBox.distance = medianDistance.x;
+          boundingBox.distance = sqrt(medianDistance.x*medianDistance.x + medianDistance.y*medianDistance.y);
+          ROS_INFO("x : %f y : %f x : %f",medianDistance.x, medianDistance.y, medianDistance.z);
           
           if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
             continue;
