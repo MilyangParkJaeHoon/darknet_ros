@@ -1,7 +1,7 @@
 subscribers:
 
   camera_reading:
-    topic: /zed/zed_node/left/image_rect_color
+    topic: /zed/zed_node/right/image_rect_color
     queue_size: 1
 
   depth_reading:
