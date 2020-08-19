@@ -158,6 +158,7 @@ void YoloObjectDetector::init()
                     std::string("found_object"));
   nodeHandle_.param("publishers/object_detector/queue_size", objectDetectorQueueSize, 1);
   nodeHandle_.param("publishers/object_detector/latch", objectDetectorLatch, false);
+  nodeHandle_.param("publishers/bounding_boxes/probability_bound", probability_bound_, float(0.5));
   nodeHandle_.param("publishers/bounding_boxes/topic", boundingBoxesTopicName,
                     std::string("bounding_boxes"));
   nodeHandle_.param("publishers/bounding_boxes/queue_size", boundingBoxesQueueSize, 1);
@@ -725,9 +726,14 @@ void *YoloObjectDetector::publishInThread()
 
           PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
           boundingBox.distance = sqrt(medianDistance.x*medianDistance.x + medianDistance.y*medianDistance.y);
+          boundingBox.x = medianDistance.x;
+          boundingBox.y = medianDistance.y;
+          boundingBox.z = medianDistance.z;
           ROS_INFO("x : %f y : %f x : %f",medianDistance.x, medianDistance.y, medianDistance.z);
           
-          if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
+          //if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
+          if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
+          //if(boundingBox.probability < probability_bound_){
             continue;
           }
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);

@@ -8,7 +8,6 @@ subscribers:
     topic: /zed/zed_node/point_cloud/cloud_registered
     queue_size: 1
 
-
 actions:
 
   camera_reading:
@@ -25,6 +24,7 @@ publishers:
     topic: /darknet_ros/bounding_boxes
     queue_size: 1
     latch: false
+    probability_bound: 0.5
 
   detection_image:
     topic: /darknet_ros/detection_image

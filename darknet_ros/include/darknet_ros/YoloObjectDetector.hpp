@@ -226,7 +226,7 @@ class YoloObjectDetector
   char *demoPrefix_;
 
   int chk_=0;
-  int probability_bound_ = 0.7;
+  float probability_bound_;
 
   std_msgs::Header imageHeader_;
   cv::Mat camImageCopy_;

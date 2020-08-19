@@ -1,0 +1,16 @@
+yolo_model:
+
+  config_file:
+    name: yolov3-tiny-prn-custom.cfg
+  weight_file:
+    name: yolov3-tiny-prn-custom.weights
+  threshold:
+    value: 0.5
+  detection_classes:
+    names:
+      - cpoint
+      - tpoint
+      - lpoint
+      - goalpost
+      - goal
+      - ball
