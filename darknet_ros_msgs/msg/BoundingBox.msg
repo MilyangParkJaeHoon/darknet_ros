@@ -4,5 +4,8 @@ int64 ymin
 int64 xmax
 int64 ymax
 float64 distance
+float64 x
+float64 y
+float64 z
 int16 id
 string Class
