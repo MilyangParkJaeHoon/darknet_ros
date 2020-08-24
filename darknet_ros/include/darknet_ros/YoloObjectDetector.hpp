@@ -241,6 +241,8 @@ class YoloObjectDetector
   int actionId_;
   boost::shared_mutex mutexActionStatus_;
 
+  std::string model_name_;
+
   // double getWallTime();
   PointPos_ medianCalculate(int xmin, int ymin, int xmax, int ymax);
 

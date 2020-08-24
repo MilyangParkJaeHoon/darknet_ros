@@ -1,0 +1,16 @@
+yolo_model:
+
+  config_file:
+    name: robocup2020/0823/yolov3-tiny-prn-512_2.cfg
+  weight_file:
+    name: robocup2020/0823/yolov3-tiny-prn-512_2_9000.weights
+  threshold:
+    value: 0.5
+  detection_classes:
+    names:
+      - cpoint
+      - tpoint
+      - lpoint
+      - goalpost
+      - goal
+      - ball
