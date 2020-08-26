@@ -1,9 +1,9 @@
 yolo_model:
 
   config_file:
-    name: robocup2020/0823/yolov3-tiny-prn-512_2.cfg
+    name: robocup2020/0822/yolov3-tiny_2.cfg
   weight_file:
-    name: robocup2020/0823/yolov3-tiny-prn-512_2_9000.weights
+    name: robocup2020/0822/yolov3-tiny_2_21000.weights
   threshold:
     value: 0.5
   detection_classes:
