@@ -5,6 +5,8 @@ project(darknet_ros)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 set(CMAKE_C_FLAGS "-Wall -Wno-unused-result -Wno-unknown-pragmas -Wno-unused-variable -Wfatal-errors -fPIC ${CMAKE_C_FLAGS}")
 
+find_package(Eigen3 REQUIRED)
+
 # Define path of darknet folder here.
 find_path(DARKNET_PATH
   NAMES "README.md"
@@ -77,7 +79,7 @@ catkin_package(
     darknet_ros_msgs
     image_transport
   DEPENDS
-    Boost
+    Boost EIGEN3
 )
 
 include_directories(
@@ -86,6 +88,7 @@ include_directories(
   include
   ${Boost_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 set(PROJECT_LIB_FILES

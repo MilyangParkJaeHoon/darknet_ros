@@ -8,6 +8,10 @@ subscribers:
     topic: /zed/zed_node/point_cloud/cloud_registered
     queue_size: 1
 
+  transform_reading:
+    topic: /alice/camera_transform
+    queue_size: 10
+
 actions:
 
   camera_reading:

@@ -19,15 +19,20 @@
 #include <chrono>
 #include <algorithm>
 
+// Eigen
+#include <Eigen/Dense>
+
 // ROS
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
 #include <std_msgs/Int8.h>
+#include <std_msgs/Float32MultiArray.h>
 #include <actionlib/server/simple_action_server.h>
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Image.h>
 #include <geometry_msgs/Point.h>
+#include <geometry_msgs/Vector3.h>
 #include <image_transport/image_transport.h>
 
 // OpenCv
@@ -124,6 +129,11 @@ class YoloObjectDetector
    */
   void depthCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
 
+  /*! 
+   * Callback of depth from ZED camera
+   */
+  void cameraTransformCallback(const std_msgs::Float32MultiArray::ConstPtr& msg);
+
   /*!
    * Check for objects action goal callback.
    */
@@ -166,6 +176,7 @@ class YoloObjectDetector
   //! ROS subscriber and publisher.
   image_transport::Subscriber imageSubscriber_;
   ros::Subscriber depthSubscriber_;
+  ros::Subscriber cameraTransformSubscriber_;
   ros::Publisher objectPublisher_;
   ros::Publisher boundingBoxesPublisher_;
 
@@ -243,8 +254,12 @@ class YoloObjectDetector
 
   std::string model_name_;
 
+  Eigen::MatrixXd camera_transform_;
+  Eigen::MatrixXd current_transform_;
+
   // double getWallTime();
   PointPos_ medianCalculate(int xmin, int ymin, int xmax, int ymax);
+  PointPos_ transformCalculate(PointPos_ distance);
 
   int sizeNetwork(network *net);
 
@@ -278,6 +293,8 @@ class YoloObjectDetector
   void *publishInThread();
 
   void getDepthMap();
+
+  void getTransformMatrix();
 };
 
 } /* namespace darknet_ros*/

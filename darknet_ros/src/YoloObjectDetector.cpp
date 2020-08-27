@@ -128,6 +128,13 @@ void YoloObjectDetector::init()
     pointCloudMap_[i] = (PointPos_*)malloc(frameHeight_*sizeof(PointPos_));
   }
 
+  camera_transform_.resize(4, 4);
+  current_transform_.resize(4,4);
+  camera_transform_ << 1, 0, 0, 0,
+                       0, 1, 0, 0,
+                       0, 0, 1, 0,
+                       0, 0, 0, 1;
+
   // Load network.
   setupNetwork(cfg, weights, data, thresh, detectionNames, numClasses_,
                 0, 0, 1, 0.5, 0, 0, 0, 0);
@@ -147,6 +154,8 @@ void YoloObjectDetector::init()
   std::string detectionImageTopicName;
   int detectionImageQueueSize;
   bool detectionImageLatch;
+  std::string cameraTransformTopicName;
+  int cameraTransformQueueSize;
 
   nodeHandle_.param("subscribers/camera_reading/topic", cameraTopicName,
                     std::string("/camera/image_raw"));
@@ -154,6 +163,9 @@ void YoloObjectDetector::init()
   nodeHandle_.param("subscribers/depth_reading/topic", depthTopicName,
                     std::string("/zed/zed_node/point_cloud/cloud_registered"));
   nodeHandle_.param("subscribers/depth_reading/queue_size", depthQueueSize, 1);
+  nodeHandle_.param("subscribers/transform_reading/topic", cameraTransformTopicName,
+                    std::string("/alice/camera_transform"));
+  nodeHandle_.param("subscribers/transform_reading/queue_size", cameraTransformQueueSize, 10);
 
   nodeHandle_.param("publishers/object_detector/topic", objectDetectorTopicName,
                     std::string("found_object"));
@@ -173,6 +185,8 @@ void YoloObjectDetector::init()
                                                &YoloObjectDetector::cameraCallback, this);
   depthSubscriber_ = nodeHandle_.subscribe(depthTopicName, depthQueueSize,
                                                &YoloObjectDetector::depthCallback, this);
+  cameraTransformSubscriber_ = nodeHandle_.subscribe(cameraTransformTopicName, 
+      cameraTransformQueueSize, &YoloObjectDetector::cameraTransformCallback, this);
   objectPublisher_ = nodeHandle_.advertise<darknet_ros_msgs::ObjectCount>(objectDetectorTopicName,
                                                                             objectDetectorQueueSize,
                                                                             objectDetectorLatch);
@@ -241,6 +255,22 @@ void YoloObjectDetector::depthCallback(const sensor_msgs::PointCloud2::ConstPtr&
   }
   beforepCloudWidth_ = pCloudWidth;
   beforepCloudHeight_ = pCloudHeight;
+
+  return;
+}
+
+void YoloObjectDetector::cameraTransformCallback(const std_msgs::Float32MultiArray::ConstPtr& msg)
+{
+  ROS_DEBUG("[YoloObjectDetector] Transform value received.");
+  std::vector<float> transform_data = msg->data;
+  for(int i=0; i<4; i++)
+  {
+    for(int j=0; j<4; j++)
+    {
+      camera_transform_(i, j) = transform_data[4*i + j];
+    }
+  }
+  return;
 }
 
 void YoloObjectDetector::checkForObjectsActionGoalCB()
@@ -352,6 +382,9 @@ detection *YoloObjectDetector::avgPredictions(network *net, int *nboxes)
 
 void *YoloObjectDetector::detectInThread()
 {
+  getDepthMap();
+  getTransformMatrix();
+
   running_ = 1;
   float nms = .4;
 
@@ -525,6 +558,11 @@ void YoloObjectDetector::getDepthMap(){
   }
 }
 
+void YoloObjectDetector::getTransformMatrix(){
+  current_transform_ = camera_transform_;
+  return;
+}
+
 void YoloObjectDetector::yolo()
 {
   const auto wait_duration = std::chrono::milliseconds(2000);
@@ -676,6 +714,40 @@ PointPos_ YoloObjectDetector::medianCalculate(int xmin, int ymin, int xmax, int 
   return median;
 }
 
+PointPos_ YoloObjectDetector::transformCalculate(PointPos_ distance)
+{
+  PointPos_ transform_distance;
+  float origin_x = distance.x;
+  float origin_y = distance.y;
+  float origin_z = distance.z;
+
+  PointPos_ error;
+  error.x = ERROR;
+  error.y = ERROR;
+  error.z = ERROR;
+
+  if(origin_x >= ERROR || origin_y >= ERROR || origin_z >= ERROR)
+  {
+    return error;
+  }
+
+  Eigen::Vector4d origin_pos, transform_pos;
+
+  origin_pos << origin_x,
+                origin_y,
+                origin_z,
+                1;
+
+  std::cout << current_transform_ << std::endl;
+  transform_pos = current_transform_ * origin_pos;
+
+  transform_distance.x = transform_pos(0);
+  transform_distance.y = transform_pos(1);
+  transform_distance.z = transform_pos(2);
+
+  return transform_distance;
+}
+
 void *YoloObjectDetector::publishInThread()
 {
   // Publish image.
@@ -726,15 +798,16 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.ymax = ymax;
 
           PointPos_ medianDistance = medianCalculate(xmin, ymin, xmax, ymax);
-          boundingBox.distance = sqrt(medianDistance.x*medianDistance.x + medianDistance.y*medianDistance.y);
-          boundingBox.x = medianDistance.x;
-          boundingBox.y = medianDistance.y;
-          boundingBox.z = medianDistance.z;
-          ROS_INFO("x : %f y : %f x : %f",medianDistance.x, medianDistance.y, medianDistance.z);
+          PointPos_ transformDistance = transformCalculate(medianDistance);
+          boundingBox.distance = sqrt(transformDistance.x*transformDistance.x + transformDistance.y*transformDistance.y);
+          boundingBox.x = transformDistance.x;
+          boundingBox.y = transformDistance.y;
+          boundingBox.z = transformDistance.z;
+          ROS_INFO("x : %f y : %f x : %f", transformDistance.x, transformDistance.y, transformDistance.z);
           
           //if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
-          //if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
-          if(boundingBox.probability < probability_bound_){
+          if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
+          //if(boundingBox.probability < probability_bound_){
             continue;
           }
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);
