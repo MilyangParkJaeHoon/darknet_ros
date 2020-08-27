@@ -802,8 +802,8 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.z = transformDistance.z;
           
           //if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
-          if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
-          //if(boundingBox.probability < probability_bound_){
+          //if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
+          if(boundingBox.probability < probability_bound_){
             continue;
           }
           boundingBoxesResults_.bounding_boxes.push_back(boundingBox);
