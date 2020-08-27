@@ -736,7 +736,6 @@ PointPos_ YoloObjectDetector::transformCalculate(PointPos_ distance)
                 origin_z,
                 1;
 
-  std::cout << current_transform_ << std::endl;
   transform_pos = current_transform_ * origin_pos;
 
   transform_distance.x = transform_pos(0);
@@ -801,7 +800,6 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.x = transformDistance.x;
           boundingBox.y = transformDistance.y;
           boundingBox.z = transformDistance.z;
-          ROS_INFO("x : %f y : %f x : %f", transformDistance.x, transformDistance.y, transformDistance.z);
           
           //if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
           if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
