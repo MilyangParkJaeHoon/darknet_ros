@@ -18,6 +18,36 @@ std::string darknetFilePath_ = DARKNET_FILE_PATH;
 #error Path of darknet repository is not defined in CMakeLists.txt.
 #endif
 
+#ifdef OPENCV
+void ipl_into_image(IplImage* src, image im)
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+    int i, j, k;
+
+    for(i = 0; i < h; ++i){
+        for(k= 0; k < c; ++k){
+            for(j = 0; j < w; ++j){
+                im.data[k*w*h + i*w + j] = data[i*step + j*c + k]/255.;
+            }
+        }
+    }
+}
+
+image ipl_to_image(IplImage* src)
+{
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    image out = make_image(w, h, c);
+    ipl_into_image(src, out);
+    return out;
+}
+#endif
+
 namespace darknet_ros {
 
 char *cfg;
@@ -376,7 +406,7 @@ detection *YoloObjectDetector::avgPredictions(network *net, int *nboxes)
       count += l.outputs;
     }
   }
-  detection *dets = get_network_boxes(net, buff_[0].w, buff_[0].h, demoThresh_, demoHier_, 0, 1, nboxes);
+  detection *dets = get_network_boxes(net, buff_[0].w, buff_[0].h, demoThresh_, demoHier_, 0, 1, nboxes, 1);
   return dets;
 }
 
@@ -390,7 +420,7 @@ void *YoloObjectDetector::detectInThread()
 
   layer l = net_->layers[net_->n - 1];
   float *X = buffLetter_[(buffIndex_ + 2) % 3].data;
-  float *prediction = network_predict(net_, X);
+  float *prediction = network_predict(*net_, X);
 
   rememberNetwork(net_);
   detection *dets = 0;
@@ -406,7 +436,7 @@ void *YoloObjectDetector::detectInThread()
     printf("Objects:\n\n");
   }
   image display = buff_[(buffIndex_+2) % 3];
-  draw_detections(display, dets, nboxes, demoThresh_, demoNames_, demoAlphabet_, demoClasses_);
+  draw_detections_v3(display, dets, nboxes, demoThresh_, demoNames_, demoAlphabet_, demoClasses_, 1);
 
   // extract the bounding boxes and send them to ROS
   int i, j;
@@ -480,7 +510,8 @@ void *YoloObjectDetector::fetchInThread()
 
 void *YoloObjectDetector::displayInThread(void *ptr)
 {
-  show_image_cv(buff_[(buffIndex_ + 1)%3], model_name_.c_str(), ipl_);
+  // show_image_cv(buff_[(buffIndex_ + 1)%3], model_name_.c_str(), ipl_);
+  show_image_cv(buff_[(buffIndex_ + 1)%3], model_name_.c_str());
   int c = cv::waitKey(waitKeyDelay_);
   if (c != -1) c = c%256;
   if (c == 27) {
@@ -801,7 +832,7 @@ void *YoloObjectDetector::publishInThread()
           boundingBox.y = transformDistance.y;
           boundingBox.z = transformDistance.z;
           
-          //if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
+          // if(boundingBox.Class != "person" || boundingBox.probability < probability_bound_){
           //if(boundingBox.Class != "ball" || boundingBox.probability < probability_bound_){
           if(boundingBox.probability < probability_bound_){
             continue;

@@ -1,6 +1,7 @@
 subscribers:
 
   camera_reading:
+#topic: /usb_cam/image_raw
     topic: /zed/zed_node/left/image_rect_color
     queue_size: 1
 

@@ -1,0 +1,15 @@
+yolo_model:
+
+  config_file:
+    name: yolov4-tiny-edie.cfg
+  weight_file:
+    name: yolov4-tiny-edie_last.weights
+  threshold:
+    value: 0.5
+  detection_classes:
+    names:
+      - darkgreen
+      - beige
+      - brown
+      - gray
+      - black
